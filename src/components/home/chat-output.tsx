@@ -1,5 +1,6 @@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { CostComparisonTable } from "../chat/cost-comparison-table";
+import RegulatoryLinks from "./regulatory-links";
 
 export default function ChatOutput() {
   //   const mockAnalysis = [
@@ -41,6 +42,7 @@ export default function ChatOutput() {
   return (
     <ScrollArea className="h-full">
       <CostComparisonTable />
+      <RegulatoryLinks />
     </ScrollArea>
   );
 }
