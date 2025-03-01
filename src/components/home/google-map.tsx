@@ -7,7 +7,10 @@ import {
   Polyline,
 } from "@react-google-maps/api";
 import { useState, useCallback, useMemo } from "react";
-import { getAndCopyAddress } from "@/lib/address-copy";
+import {
+  getAddressFromCoordinates,
+  getAndCopyAddress,
+} from "@/lib/address-copy";
 import { useToast } from "@/lib/hooks/use-toast";
 import { Toaster } from "../ui/toaster";
 import { Button } from "../ui/button";
@@ -62,9 +65,6 @@ export default function MapComponent() {
     type: "deployed" | "empty";
     pipelineIndex: number;
   } | null>(null);
-  const [lastCopiedAddress, setLastCopiedAddress] = useState<string | null>(
-    null
-  );
 
   const pipelineStyles = {
     deployed: { strokeColor: "#00FF00", strokeOpacity: 1.0, strokeWeight: 4 },
@@ -98,73 +98,90 @@ export default function MapComponent() {
     }, 0);
   };
 
-  const { connectedDeployed, connectedEmpty, connectionDistance } =
-    useMemo(() => {
-      const adjacency = new Map<string, string[]>();
-      const allNodes = new Set<string>();
-      let cDeployed = 0;
-      let cEmpty = 0;
+  const {
+    connectedDeployed,
+    connectedEmpty,
+    connectionDistance,
+    connectedCoordinates,
+  } = useMemo(() => {
+    const adjacency = new Map<string, string[]>();
+    const allNodes = new Set<string>();
+    let cDeployed = 0;
+    let cEmpty = 0;
+    const coords: Coordinate[] = [];
 
-      connections.forEach((conn) => {
-        const startKey = `${conn.startPipeline.type}-${conn.startPipeline.index}`;
-        const endKey = `${conn.endPipeline.type}-${conn.endPipeline.index}`;
-        allNodes.add(startKey);
-        allNodes.add(endKey);
+    connections.forEach((conn) => {
+      const startKey = `${conn.startPipeline.type}-${conn.startPipeline.index}`;
+      const endKey = `${conn.endPipeline.type}-${conn.endPipeline.index}`;
+      allNodes.add(startKey);
+      allNodes.add(endKey);
 
-        if (!adjacency.has(startKey)) adjacency.set(startKey, []);
-        if (!adjacency.has(endKey)) adjacency.set(endKey, []);
-        adjacency.get(startKey)!.push(endKey);
-        adjacency.get(endKey)!.push(startKey);
-      });
+      if (!adjacency.has(startKey)) adjacency.set(startKey, []);
+      if (!adjacency.has(endKey)) adjacency.set(endKey, []);
+      adjacency.get(startKey)?.push(endKey);
+      adjacency.get(endKey)?.push(startKey);
+    });
 
-      const visited = new Set<string>();
-      const components: Set<string>[] = [];
+    const visited = new Set<string>();
+    const components: Set<string>[] = [];
 
-      allNodes.forEach((node) => {
-        if (!visited.has(node)) {
-          const component = new Set<string>();
-          const queue = [node];
-          while (queue.length > 0) {
-            const current = queue.shift()!;
-            if (visited.has(current)) continue;
-            visited.add(current);
-            component.add(current);
-            adjacency.get(current)?.forEach((neighbor) => {
-              if (!visited.has(neighbor)) queue.push(neighbor);
-            });
-          }
-          components.push(component);
-        }
-      });
-
-      components.forEach((component) => {
-        const hasDeployed = Array.from(component).some((k) =>
-          k.startsWith("deployed-")
-        );
-        if (hasDeployed) {
-          component.forEach((key) => {
-            const [type, index] = key.split("-");
-            const idx = parseInt(index);
-            if (type === "deployed") {
-              cDeployed += calculatePipelineLength(deployedPipelines[idx]);
-            } else {
-              cEmpty += calculatePipelineLength(emptyPipelines[idx]);
-            }
+    allNodes.forEach((node) => {
+      if (!visited.has(node)) {
+        const component = new Set<string>();
+        const queue = [node];
+        while (queue.length > 0) {
+          const current = queue.shift()!;
+          if (visited.has(current)) continue;
+          visited.add(current);
+          component.add(current);
+          adjacency.get(current)?.forEach((neighbor) => {
+            if (!visited.has(neighbor)) queue.push(neighbor);
           });
         }
-      });
+        components.push(component);
+      }
+    });
 
-      const cDistance = connections.reduce(
-        (sum, conn) => sum + haversineDistance(conn.start, conn.end),
-        0
+    components.forEach((component) => {
+      const hasDeployed = Array.from(component).some((k) =>
+        k.startsWith("deployed-")
       );
+      if (hasDeployed) {
+        component.forEach((key) => {
+          const [type, index] = key.split("-");
+          const idx = parseInt(index);
+          const pipeline =
+            type === "deployed" ? deployedPipelines[idx] : emptyPipelines[idx];
 
-      return {
-        connectedDeployed: cDeployed,
-        connectedEmpty: cEmpty,
-        connectionDistance: cDistance,
-      };
-    }, [connections]);
+          pipeline.forEach((coord) => {
+            if (
+              !coords.some((c) => c.lat === coord.lat && c.lng === coord.lng)
+            ) {
+              coords.push(coord);
+            }
+          });
+
+          if (type === "deployed") {
+            cDeployed += calculatePipelineLength(pipeline);
+          } else {
+            cEmpty += calculatePipelineLength(pipeline);
+          }
+        });
+      }
+    });
+
+    const cDistance = connections.reduce(
+      (sum, conn) => sum + haversineDistance(conn.start, conn.end),
+      0
+    );
+
+    return {
+      connectedDeployed: cDeployed,
+      connectedEmpty: cEmpty,
+      connectionDistance: cDistance,
+      connectedCoordinates: coords,
+    };
+  }, [connections]);
 
   const handlePointClick =
     (coord: Coordinate, type: "deployed" | "empty", pipelineIndex: number) =>
@@ -195,7 +212,6 @@ export default function MapComponent() {
 
       try {
         const address = await getAndCopyAddress(e.latLng.lat(), e.latLng.lng());
-        setLastCopiedAddress(address);
         toast({
           title: "Address Copied!",
           description: address,
@@ -214,21 +230,47 @@ export default function MapComponent() {
   );
 
   const handleGeneratePrompt = useCallback(async () => {
-    const promptText = `I need a structured feasibility analysis for a networking pipeline deployment project in ${
-      lastCopiedAddress || "[address]"
-    }.
-
-There is an existing pipeline that is ${connectedDeployed.toFixed(
-      2
-    )} meters in length and an unused pipeline (canalization) ${connectionDistance.toFixed(
-      2
-    )} meters away, with a length of ${connectedEmpty.toFixed(2)} meters.`;
-
     try {
+      let address = "[location]";
+
+      if (connectedCoordinates.length > 0) {
+        const total = connectedCoordinates.reduce(
+          (acc, coord) => ({
+            lat: acc.lat + coord.lat,
+            lng: acc.lng + coord.lng,
+          }),
+          { lat: 0, lng: 0 }
+        );
+
+        const avgLat = total.lat / connectedCoordinates.length;
+        const avgLng = total.lng / connectedCoordinates.length;
+
+        try {
+          address = await getAddressFromCoordinates(avgLat, avgLng);
+        } catch (error) {
+          console.error("Geocoding failed:", error);
+          address = "[nearest available location]";
+        }
+      }
+
+      const promptText = `I need a structured feasibility analysis for a networking pipeline deployment project in ${address}.\n\nThere is an existing pipeline that is ${connectedDeployed.toFixed(
+        2
+      )} meters in length and an unused pipeline (canalization) ${connectionDistance.toFixed(
+        2
+      )} meters away, with a length of ${connectedEmpty.toFixed(2)} meters.`;
+
       await navigator.clipboard.writeText(promptText);
       toast({
         title: "Prompt Copied!",
-        description: promptText,
+        description: (
+          <div className="grid gap-1">
+            {promptText.split("\n\n").map((line, i) => (
+              <p key={i} className="text-sm">
+                {line}
+              </p>
+            ))}
+          </div>
+        ),
         duration: 5000,
       });
     } catch (error) {
@@ -240,10 +282,10 @@ There is an existing pipeline that is ${connectedDeployed.toFixed(
       });
     }
   }, [
+    connectedCoordinates,
     connectedDeployed,
     connectedEmpty,
     connectionDistance,
-    lastCopiedAddress,
     toast,
   ]);
 
