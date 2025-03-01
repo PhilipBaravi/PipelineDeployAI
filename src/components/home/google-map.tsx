@@ -36,28 +36,35 @@ export default function MapComponent() {
     googleMapsApiKey: GOOGLE_API_KEY,
   });
 
-  const deployedPipelines = [
-    [
-      { lat: 51.505, lng: -0.09 },
-      { lat: 51.5052, lng: -0.089 },
-      { lat: 51.5054, lng: -0.088 },
+  // Memoize pipeline arrays to prevent unnecessary re-renders
+  const deployedPipelines = useMemo(
+    () => [
+      [
+        { lat: 51.505, lng: -0.09 },
+        { lat: 51.5052, lng: -0.089 },
+        { lat: 51.5054, lng: -0.088 },
+      ],
+      [
+        { lat: 51.506, lng: -0.091 },
+        { lat: 51.5062, lng: -0.09 },
+      ],
     ],
-    [
-      { lat: 51.506, lng: -0.091 },
-      { lat: 51.5062, lng: -0.09 },
-    ],
-  ];
+    []
+  );
 
-  const emptyPipelines = [
-    [
-      { lat: 51.5056, lng: -0.087 },
-      { lat: 51.5058, lng: -0.086 },
+  const emptyPipelines = useMemo(
+    () => [
+      [
+        { lat: 51.5056, lng: -0.087 },
+        { lat: 51.5058, lng: -0.086 },
+      ],
+      [
+        { lat: 51.5064, lng: -0.089 },
+        { lat: 51.5066, lng: -0.088 },
+      ],
     ],
-    [
-      { lat: 51.5064, lng: -0.089 },
-      { lat: 51.5066, lng: -0.088 },
-    ],
-  ];
+    []
+  );
 
   const [connections, setConnections] = useState<Connection[]>([]);
   const [selectedPoint, setSelectedPoint] = useState<{
@@ -72,31 +79,35 @@ export default function MapComponent() {
     connection: { strokeColor: "#0000FF", strokeOpacity: 0.8, strokeWeight: 3 },
   };
 
-  const haversineDistance = (
-    coord1: Coordinate,
-    coord2: Coordinate
-  ): number => {
-    const R = 6371000;
-    const toRad = (angle: number) => (angle * Math.PI) / 180;
-    const dLat = toRad(coord2.lat - coord1.lat);
-    const dLng = toRad(coord2.lng - coord1.lng);
+  const haversineDistance = useCallback(
+    (coord1: Coordinate, coord2: Coordinate): number => {
+      const R = 6371000;
+      const toRad = (angle: number) => (angle * Math.PI) / 180;
+      const dLat = toRad(coord2.lat - coord1.lat);
+      const dLng = toRad(coord2.lng - coord1.lng);
 
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(toRad(coord1.lat)) *
-        Math.cos(toRad(coord2.lat)) *
-        Math.sin(dLng / 2) *
-        Math.sin(dLng / 2);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(coord1.lat)) *
+          Math.cos(toRad(coord2.lat)) *
+          Math.sin(dLng / 2) *
+          Math.sin(dLng / 2);
 
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  };
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    },
+    []
+  );
 
-  const calculatePipelineLength = (pipeline: Coordinate[]): number => {
-    return pipeline.reduce((total, point, index) => {
-      if (index === 0) return total;
-      return total + haversineDistance(pipeline[index - 1], point);
-    }, 0);
-  };
+  // Memoize pipeline length calculation
+  const calculatePipelineLength = useCallback(
+    (pipeline: Coordinate[]): number => {
+      return pipeline.reduce((total, point, index) => {
+        if (index === 0) return total;
+        return total + haversineDistance(pipeline[index - 1], point);
+      }, 0);
+    },
+    [haversineDistance]
+  );
 
   const {
     connectedDeployed,
@@ -181,7 +192,13 @@ export default function MapComponent() {
       connectionDistance: cDistance,
       connectedCoordinates: coords,
     };
-  }, [connections]);
+  }, [
+    connections,
+    deployedPipelines,
+    emptyPipelines,
+    calculatePipelineLength,
+    haversineDistance,
+  ]);
 
   const handlePointClick =
     (coord: Coordinate, type: "deployed" | "empty", pipelineIndex: number) =>
@@ -224,6 +241,7 @@ export default function MapComponent() {
           variant: "destructive",
           duration: 3000,
         });
+        console.error(error);
       }
     },
     [toast]
@@ -280,6 +298,7 @@ export default function MapComponent() {
         variant: "destructive",
         duration: 3000,
       });
+      console.error(error);
     }
   }, [
     connectedCoordinates,
@@ -299,8 +318,10 @@ export default function MapComponent() {
       </div>
 
       <div className="mb-4 space-y-1 text-sm">
-        <p>Connected Deployed Length: {connectedDeployed.toFixed(2)}m</p>
-        <p>Connected Empty Length: {connectedEmpty.toFixed(2)}m</p>
+        <p>Deployed Pipeline Length: {connectedDeployed.toFixed(2)}m</p>
+        <p>
+          Empty Pipeline (Canalization) Length: {connectedEmpty.toFixed(2)}m
+        </p>
         <p>Connection Distance: {connectionDistance.toFixed(2)}m</p>
       </div>
 
