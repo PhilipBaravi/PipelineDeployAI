@@ -26,7 +26,7 @@ export default function MapComponent() {
     googleMapsApiKey: GOOGLE_API_KEY,
   });
 
-  const [networkPipeline, setNetworkPipeline] = useState<Coordinate[]>([
+  const [networkPipeline] = useState<Coordinate[]>([
     { lat: 51.505, lng: -0.09 },
     { lat: 51.51, lng: -0.1 },
     { lat: 51.515, lng: -0.095 },
@@ -34,9 +34,7 @@ export default function MapComponent() {
     { lat: 51.525, lng: -0.075 },
   ]);
 
-  const [emptyNetworkPipeline, setEmptyNetworkPipeline] = useState<
-    Coordinate[]
-  >([
+  const [emptyNetworkPipeline] = useState<Coordinate[]>([
     { lat: 51.6, lng: -0.078 },
     { lat: 51.53, lng: -0.07 },
     { lat: 51.535, lng: -0.065 },
@@ -144,6 +142,7 @@ export default function MapComponent() {
           variant: "destructive",
           duration: 3000,
         });
+        console.error(error);
       }
     },
     [toast]

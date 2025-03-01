@@ -7,9 +7,9 @@ export default function DatasetsPage() {
         <h2 className="text-xl font-semibold">Deployed Pipelines Data</h2>
         <p className="text-gray-600 leading-relaxed">
           Information about deployed telecommunications pipelines is obtained
-          from the Generalitat de Catalunya's Presidency website. This dataset
-          provides comprehensive information about existing telecommunications
-          infrastructure deployments.
+          from the Generalitat de Catalunya&apos;s Presidency website. This
+          dataset provides comprehensive information about existing
+          telecommunications infrastructure deployments.
         </p>
         <a
           href="https://presidencia.gencat.cat/ca/ambits_d_actuacio/transformacio-digital/ambits-dactuacio/territori-digital/punt-dinformacio-unic-dacces-a-les-infraestructures-de-telecomunicacions-piu/nous-desplegaments/"
@@ -17,7 +17,7 @@ export default function DatasetsPage() {
           rel="noopener noreferrer"
           className="text-blue-600 hover:underline inline-block mt-2"
         >
-          Source: Punt d'Informació Únic (PIU) - Nous desplegaments
+          Source: Punt d&apos;Informació Únic (PIU) - Nous desplegaments
         </a>
       </section>
 

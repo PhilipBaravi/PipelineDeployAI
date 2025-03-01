@@ -2,15 +2,7 @@
 
 import Link from "next/link";
 
-import {
-  Database,
-  Radical,
-  Home,
-  Inbox,
-  LayoutDashboard,
-  Search,
-  Users,
-} from "lucide-react";
+import { Database, Radical, Home, LayoutDashboard, Users } from "lucide-react";
 
 import {
   Sidebar,

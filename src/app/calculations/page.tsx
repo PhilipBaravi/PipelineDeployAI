@@ -9,15 +9,17 @@ export default function CalculationsPage() {
           We use the Haversine formula to calculate the great-circle distance
           between two points on a sphere (in our case, Earth). This formula is
           particularly accurate for geographical calculations as it accounts for
-          Earth's spherical shape.
+          Earth&apos;s spherical shape.
         </p>
         <div className="bg-muted/20 p-4 rounded-lg space-y-2">
-          <p className="font-mono">R = 6371000 (Earth's radius in meters)</p>
+          <p className="font-mono">
+            R = 6371000 (Earth&apos;s radius in meters)
+          </p>
           <p className="font-mono">a = sin²(Δφ/2) + cos(φ₁)cos(φ₂)sin²(Δλ/2)</p>
           <p className="font-mono">c = 2 * atan2(√a, √(1-a))</p>
           <p className="font-mono">d = R * c</p>
           <p className="mt-2 text-sm text-gray-600">
-            Where: φ is latitude, λ is longitude, and R is Earth's radius
+            Where: φ is latitude, λ is longitude, and R is Earth&apos;s radius
           </p>
         </div>
       </section>
