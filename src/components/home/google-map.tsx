@@ -10,6 +10,7 @@ import { useState, useCallback, useMemo } from "react";
 import { getAndCopyAddress } from "@/lib/address-copy";
 import { useToast } from "@/lib/hooks/use-toast";
 import { Toaster } from "../ui/toaster";
+import { Button } from "../ui/button";
 
 interface Coordinate {
   lat: number;
@@ -61,6 +62,9 @@ export default function MapComponent() {
     type: "deployed" | "empty";
     pipelineIndex: number;
   } | null>(null);
+  const [lastCopiedAddress, setLastCopiedAddress] = useState<string | null>(
+    null
+  );
 
   const pipelineStyles = {
     deployed: { strokeColor: "#00FF00", strokeOpacity: 1.0, strokeWeight: 4 },
@@ -101,7 +105,6 @@ export default function MapComponent() {
       let cDeployed = 0;
       let cEmpty = 0;
 
-      // Build adjacency list
       connections.forEach((conn) => {
         const startKey = `${conn.startPipeline.type}-${conn.startPipeline.index}`;
         const endKey = `${conn.endPipeline.type}-${conn.endPipeline.index}`;
@@ -117,7 +120,6 @@ export default function MapComponent() {
       const visited = new Set<string>();
       const components: Set<string>[] = [];
 
-      // Find all connected components
       allNodes.forEach((node) => {
         if (!visited.has(node)) {
           const component = new Set<string>();
@@ -135,7 +137,6 @@ export default function MapComponent() {
         }
       });
 
-      // Calculate lengths for components containing deployed pipelines
       components.forEach((component) => {
         const hasDeployed = Array.from(component).some((k) =>
           k.startsWith("deployed-")
@@ -194,6 +195,7 @@ export default function MapComponent() {
 
       try {
         const address = await getAndCopyAddress(e.latLng.lat(), e.latLng.lng());
+        setLastCopiedAddress(address);
         toast({
           title: "Address Copied!",
           description: address,
@@ -211,11 +213,48 @@ export default function MapComponent() {
     [toast]
   );
 
+  const handleGeneratePrompt = useCallback(async () => {
+    const promptText = `I need a structured feasibility analysis for a networking pipeline deployment project in ${
+      lastCopiedAddress || "[address]"
+    }.
+
+There is an existing pipeline that is ${connectedDeployed.toFixed(
+      2
+    )} meters in length and an unused pipeline (canalization) ${connectionDistance.toFixed(
+      2
+    )} meters away, with a length of ${connectedEmpty.toFixed(2)} meters.`;
+
+    try {
+      await navigator.clipboard.writeText(promptText);
+      toast({
+        title: "Prompt Copied!",
+        description: promptText,
+        duration: 5000,
+      });
+    } catch (error) {
+      toast({
+        title: "Copy Failed",
+        description: "Failed to copy prompt to clipboard",
+        variant: "destructive",
+        duration: 3000,
+      });
+    }
+  }, [
+    connectedDeployed,
+    connectedEmpty,
+    connectionDistance,
+    lastCopiedAddress,
+    toast,
+  ]);
+
   if (!isLoaded) return <div>Loading...</div>;
 
   return (
     <div className="p-4 h-full">
-      <h2 className="text-xl font-semibold mb-2">Pipeline Network Map</h2>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-semibold">Pipeline Network Map</h2>
+        <Button onClick={handleGeneratePrompt}>Generate Prompt</Button>
+      </div>
 
       <div className="mb-4 space-y-1 text-sm">
         <p>Connected Deployed Length: {connectedDeployed.toFixed(2)}m</p>
