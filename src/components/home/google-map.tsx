@@ -6,15 +6,21 @@ import {
   Marker,
   Polyline,
 } from "@react-google-maps/api";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { getAndCopyAddress } from "@/lib/address-copy";
 import { useToast } from "@/lib/hooks/use-toast";
 import { Toaster } from "../ui/toaster";
 
-// Define TypeScript types for coordinates
 interface Coordinate {
   lat: number;
   lng: number;
+}
+
+interface Connection {
+  start: Coordinate;
+  end: Coordinate;
+  startPipeline: { type: "deployed" | "empty"; index: number };
+  endPipeline: { type: "deployed" | "empty"; index: number };
 }
 
 export default function MapComponent() {
@@ -26,41 +32,47 @@ export default function MapComponent() {
     googleMapsApiKey: GOOGLE_API_KEY,
   });
 
-  const [networkPipeline] = useState<Coordinate[]>([
-    { lat: 51.505, lng: -0.09 },
-    { lat: 51.51, lng: -0.1 },
-    { lat: 51.515, lng: -0.095 },
-    { lat: 51.52, lng: -0.085 },
-    { lat: 51.525, lng: -0.075 },
-  ]);
+  const deployedPipelines = [
+    [
+      { lat: 51.505, lng: -0.09 },
+      { lat: 51.5052, lng: -0.089 },
+      { lat: 51.5054, lng: -0.088 },
+    ],
+    [
+      { lat: 51.506, lng: -0.091 },
+      { lat: 51.5062, lng: -0.09 },
+    ],
+  ];
 
-  const [emptyNetworkPipeline] = useState<Coordinate[]>([
-    { lat: 51.6, lng: -0.078 },
-    { lat: 51.53, lng: -0.07 },
-    { lat: 51.535, lng: -0.065 },
-  ]);
+  const emptyPipelines = [
+    [
+      { lat: 51.5056, lng: -0.087 },
+      { lat: 51.5058, lng: -0.086 },
+    ],
+    [
+      { lat: 51.5064, lng: -0.089 },
+      { lat: 51.5066, lng: -0.088 },
+    ],
+  ];
 
-  const [mapKey, setMapKey] = useState<number>(0);
-
-  useEffect(() => {
-    setMapKey((prevKey) => prevKey + 1);
-  }, []); //Fixed unnecessary dependencies
-
-  const mapCenter: Coordinate =
-    networkPipeline.length > 0 ? networkPipeline[0] : { lat: 0, lng: 0 };
+  const [connections, setConnections] = useState<Connection[]>([]);
+  const [selectedPoint, setSelectedPoint] = useState<{
+    coord: Coordinate;
+    type: "deployed" | "empty";
+    pipelineIndex: number;
+  } | null>(null);
 
   const pipelineStyles = {
-    network: { strokeColor: "#00FF00", strokeOpacity: 1.0, strokeWeight: 4 },
+    deployed: { strokeColor: "#00FF00", strokeOpacity: 1.0, strokeWeight: 4 },
     empty: { strokeColor: "#FF0000", strokeOpacity: 1.0, strokeWeight: 4 },
     connection: { strokeColor: "#0000FF", strokeOpacity: 0.8, strokeWeight: 3 },
   };
 
-  // Haversine formula to calculate distance between two lat/lng points in meters
   const haversineDistance = (
     coord1: Coordinate,
     coord2: Coordinate
   ): number => {
-    const R = 6371000; // Radius of Earth in meters
+    const R = 6371000;
     const toRad = (angle: number) => (angle * Math.PI) / 180;
     const dLat = toRad(coord2.lat - coord1.lat);
     const dLng = toRad(coord2.lng - coord1.lng);
@@ -72,64 +84,116 @@ export default function MapComponent() {
         Math.sin(dLng / 2) *
         Math.sin(dLng / 2);
 
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return R * c; // Distance in meters
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
-  // Function to calculate total pipeline length
-  const calculateTotalDistance = (pipeline: Coordinate[]): number => {
-    if (pipeline.length < 2) return 0;
-
+  const calculatePipelineLength = (pipeline: Coordinate[]): number => {
     return pipeline.reduce((total, point, index) => {
       if (index === 0) return total;
       return total + haversineDistance(pipeline[index - 1], point);
     }, 0);
   };
 
-  // Find the nearest empty pipeline point
-  const findNearestPoint = (
-    target: Coordinate,
-    points: Coordinate[]
-  ): Coordinate | null => {
-    if (!target || points.length === 0) return null;
+  const { connectedDeployed, connectedEmpty, connectionDistance } =
+    useMemo(() => {
+      const adjacency = new Map<string, string[]>();
+      const allNodes = new Set<string>();
+      let cDeployed = 0;
+      let cEmpty = 0;
 
-    return points.reduce((nearest: Coordinate, point: Coordinate) => {
-      const distance = haversineDistance(target, point);
-      const nearestDistance = haversineDistance(target, nearest);
-      return distance < nearestDistance ? point : nearest;
-    }, points[0]);
-  };
+      // Build adjacency list
+      connections.forEach((conn) => {
+        const startKey = `${conn.startPipeline.type}-${conn.startPipeline.index}`;
+        const endKey = `${conn.endPipeline.type}-${conn.endPipeline.index}`;
+        allNodes.add(startKey);
+        allNodes.add(endKey);
 
-  // Last point of deployed pipeline
-  const lastNetworkPoint: Coordinate | null =
-    networkPipeline.length > 0
-      ? networkPipeline[networkPipeline.length - 1]
-      : null;
+        if (!adjacency.has(startKey)) adjacency.set(startKey, []);
+        if (!adjacency.has(endKey)) adjacency.set(endKey, []);
+        adjacency.get(startKey)!.push(endKey);
+        adjacency.get(endKey)!.push(startKey);
+      });
 
-  const nearestEmptyPoint: Coordinate | null = lastNetworkPoint
-    ? findNearestPoint(lastNetworkPoint, emptyNetworkPipeline)
-    : null;
+      const visited = new Set<string>();
+      const components: Set<string>[] = [];
 
-  // Calculate total lengths
-  const totalDeployedLength = calculateTotalDistance(networkPipeline);
-  const totalEmptyLength = calculateTotalDistance(emptyNetworkPipeline);
-  const connectionDistance =
-    lastNetworkPoint && nearestEmptyPoint
-      ? haversineDistance(lastNetworkPoint, nearestEmptyPoint)
-      : 0;
+      // Find all connected components
+      allNodes.forEach((node) => {
+        if (!visited.has(node)) {
+          const component = new Set<string>();
+          const queue = [node];
+          while (queue.length > 0) {
+            const current = queue.shift()!;
+            if (visited.has(current)) continue;
+            visited.add(current);
+            component.add(current);
+            adjacency.get(current)?.forEach((neighbor) => {
+              if (!visited.has(neighbor)) queue.push(neighbor);
+            });
+          }
+          components.push(component);
+        }
+      });
 
-  // Handle map click to copy address
+      // Calculate lengths for components containing deployed pipelines
+      components.forEach((component) => {
+        const hasDeployed = Array.from(component).some((k) =>
+          k.startsWith("deployed-")
+        );
+        if (hasDeployed) {
+          component.forEach((key) => {
+            const [type, index] = key.split("-");
+            const idx = parseInt(index);
+            if (type === "deployed") {
+              cDeployed += calculatePipelineLength(deployedPipelines[idx]);
+            } else {
+              cEmpty += calculatePipelineLength(emptyPipelines[idx]);
+            }
+          });
+        }
+      });
+
+      const cDistance = connections.reduce(
+        (sum, conn) => sum + haversineDistance(conn.start, conn.end),
+        0
+      );
+
+      return {
+        connectedDeployed: cDeployed,
+        connectedEmpty: cEmpty,
+        connectionDistance: cDistance,
+      };
+    }, [connections]);
+
+  const handlePointClick =
+    (coord: Coordinate, type: "deployed" | "empty", pipelineIndex: number) =>
+    (e: google.maps.MapMouseEvent) => {
+      e.domEvent.stopPropagation();
+
+      if (!selectedPoint) {
+        setSelectedPoint({ coord, type, pipelineIndex });
+      } else {
+        const newConnection: Connection = {
+          start: selectedPoint.coord,
+          end: coord,
+          startPipeline: {
+            type: selectedPoint.type,
+            index: selectedPoint.pipelineIndex,
+          },
+          endPipeline: { type, index: pipelineIndex },
+        };
+        setConnections((prev) => [...prev, newConnection]);
+        setSelectedPoint(null);
+      }
+    };
+
   const handleMapClick = useCallback(
     async (e: google.maps.MapMouseEvent) => {
       if (!e.latLng) return;
-
-      const lat = e.latLng.lat();
-      const lng = e.latLng.lng();
+      setSelectedPoint(null);
 
       try {
-        const address = await getAndCopyAddress(lat, lng);
-
+        const address = await getAndCopyAddress(e.latLng.lat(), e.latLng.lng());
         toast({
           title: "Address Copied!",
           description: address,
@@ -142,7 +206,6 @@ export default function MapComponent() {
           variant: "destructive",
           duration: 3000,
         });
-        console.error(error);
       }
     },
     [toast]
@@ -154,47 +217,74 @@ export default function MapComponent() {
     <div className="p-4 h-full">
       <h2 className="text-xl font-semibold mb-2">Pipeline Network Map</h2>
 
-      {/* Display pipeline distances */}
       <div className="mb-4 space-y-1 text-sm">
-        <p>Deployed Pipeline Length: {totalDeployedLength.toFixed(2)}m</p>
-        <p>Empty Pipeline Length: {totalEmptyLength.toFixed(2)}m</p>
+        <p>Connected Deployed Length: {connectedDeployed.toFixed(2)}m</p>
+        <p>Connected Empty Length: {connectedEmpty.toFixed(2)}m</p>
         <p>Connection Distance: {connectionDistance.toFixed(2)}m</p>
       </div>
 
       <div className="h-[calc(100%-8rem)]">
         <GoogleMap
-          key={mapKey} // Force re-render when data changes
           mapContainerStyle={{ width: "100%", height: "100%" }}
-          center={mapCenter}
-          zoom={13}
+          center={{ lat: 51.5055, lng: -0.089 }}
+          zoom={16}
           onClick={handleMapClick}
         >
-          {/* Main Network Pipeline (Green) */}
-          {networkPipeline.map((position, index) => (
-            <Marker key={`network-${index}`} position={position} />
+          {deployedPipelines.map((pipeline, pipelineIndex) => (
+            <div key={`deployed-${pipelineIndex}`}>
+              <Polyline path={pipeline} options={pipelineStyles.deployed} />
+              {pipeline.map((coord, pointIndex) => (
+                <Marker
+                  key={`deployed-${pipelineIndex}-${pointIndex}`}
+                  position={coord}
+                  onClick={handlePointClick(coord, "deployed", pipelineIndex)}
+                  icon={{
+                    path: google.maps.SymbolPath.CIRCLE,
+                    fillColor:
+                      selectedPoint?.pipelineIndex === pipelineIndex
+                        ? "#FFFF00"
+                        : "#00FF00",
+                    fillOpacity: 1,
+                    strokeWeight: 0,
+                    scale: 5,
+                  }}
+                />
+              ))}
+            </div>
           ))}
-          <Polyline path={networkPipeline} options={pipelineStyles.network} />
 
-          {/* Empty Pipeline (Red) */}
-          {emptyNetworkPipeline.map((position, index) => (
-            <Marker key={`empty-${index}`} position={position} />
+          {emptyPipelines.map((pipeline, pipelineIndex) => (
+            <div key={`empty-${pipelineIndex}`}>
+              <Polyline path={pipeline} options={pipelineStyles.empty} />
+              {pipeline.map((coord, pointIndex) => (
+                <Marker
+                  key={`empty-${pipelineIndex}-${pointIndex}`}
+                  position={coord}
+                  onClick={handlePointClick(coord, "empty", pipelineIndex)}
+                  icon={{
+                    path: google.maps.SymbolPath.CIRCLE,
+                    fillColor:
+                      selectedPoint?.pipelineIndex === pipelineIndex
+                        ? "#FFFF00"
+                        : "#FF0000",
+                    fillOpacity: 1,
+                    strokeWeight: 0,
+                    scale: 5,
+                  }}
+                />
+              ))}
+            </div>
           ))}
-          <Polyline
-            path={emptyNetworkPipeline}
-            options={pipelineStyles.empty}
-          />
 
-          {/* Inter-Pipeline Connection (Blue, Now Connecting to the Nearest Point) */}
-          {lastNetworkPoint && nearestEmptyPoint && (
+          {connections.map((connection, index) => (
             <Polyline
-              path={[lastNetworkPoint, nearestEmptyPoint]}
+              key={`connection-${index}`}
+              path={[connection.start, connection.end]}
               options={pipelineStyles.connection}
             />
-          )}
+          ))}
         </GoogleMap>
       </div>
-
-      {/* Toast component for notifications */}
       <Toaster />
     </div>
   );

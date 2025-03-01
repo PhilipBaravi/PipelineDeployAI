@@ -20,7 +20,7 @@ import {
 // Sample navigation items
 const mainNavItems = [
   {
-    title: "Dashboard",
+    title: "App",
     icon: LayoutDashboard,
     url: "/",
     isActive: true,
