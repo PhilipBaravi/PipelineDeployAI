@@ -58,7 +58,12 @@ export default function MapComponent() {
     const fetchDeployedPipelines = async (): Promise<void> => {
       try {
         const response = await fetch(
-          "https://dbb0-82-211-142-122.ngrok-free.app/api/v1/pipeline"
+          "https://f761-82-211-142-122.ngrok-free.app/api/v1/pipeline",
+          {
+            headers: {
+              "ngrok-skip-browser-warning": "true",
+            },
+          }
         );
 
         // First check if response is OK (status 200-299)
