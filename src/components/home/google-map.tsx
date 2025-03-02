@@ -6,7 +6,7 @@ import {
   Marker,
   Polyline,
 } from "@react-google-maps/api";
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import {
   getAddressFromCoordinates,
   getAndCopyAddress,
@@ -28,6 +28,9 @@ interface Connection {
 }
 
 export default function MapComponent() {
+  const [deployedPipelines, setDeployedPipelines] = useState<Coordinate[][]>(
+    []
+  );
   const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
   const { toast } = useToast();
 
@@ -37,20 +40,54 @@ export default function MapComponent() {
     libraries: ["geometry"],
   });
 
-  const deployedPipelines = useMemo(
-    () => [
-      [
-        { lat: 41.3851, lng: 2.1734 },
-        { lat: 41.3853, lng: 2.1744 },
-        { lat: 41.3855, lng: 2.1754 },
-      ],
-      [
-        { lat: 41.3861, lng: 2.1724 },
-        { lat: 41.3863, lng: 2.1734 },
-      ],
-    ],
-    []
-  );
+  useEffect(() => {
+    const fetchDeployedPipelines = async () => {
+      try {
+        const response = await fetch(
+          "https://f761-82-211-142-122.ngrok-free.app/api/v1/pipeline"
+        );
+
+        // First check if response is OK (status 200-299)
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        // Check if response is JSON
+        const contentType = response.headers.get("content-type");
+        if (!contentType?.includes("application/json")) {
+          const text = await response.text();
+          throw new Error(
+            `Invalid content type: ${contentType} - Response: ${text}`
+          );
+        }
+
+        const data = await response.json();
+
+        if (data.success) {
+          const pipelines = data.data.map((pipeline: any) =>
+            pipeline.nodes.map((node: any) => ({
+              lat: node.latitude,
+              lng: node.longitude,
+            }))
+          );
+          setDeployedPipelines(pipelines);
+        }
+      } catch (error) {
+        console.error("Error fetching pipelines:", error);
+        toast({
+          title: "Error",
+          description:
+            error instanceof Error
+              ? error.message
+              : "Failed to load pipeline data",
+          variant: "destructive",
+          duration: 3000,
+        });
+      }
+    };
+
+    fetchDeployedPipelines();
+  }, []);
 
   const emptyPipelines = useMemo(
     () => [
