@@ -67,7 +67,7 @@ export default async function Home() {
   // Fetch non-empty (deployed) pipelines and skip every 5th one.
   try {
     const responseNonEmpty = await fetch(
-      "https://31a3-82-211-142-122.ngrok-free.app/api/v1/pipeline/non-empty",
+      "https://cost-efficient-deployment.onrender.com/api/v1/pipeline/non-empty",
       {
         headers: { "ngrok-skip-browser-warning": "true" },
       }
@@ -106,7 +106,7 @@ export default async function Home() {
   // Fetch empty pipelines and skip every 5th one.
   try {
     const responseEmpty = await fetch(
-      "https://31a3-82-211-142-122.ngrok-free.app/api/v1/pipeline/empty",
+      "https://cost-efficient-deployment.onrender.com/api/v1/pipeline/empty",
       {
         headers: { "ngrok-skip-browser-warning": "true" },
       }
