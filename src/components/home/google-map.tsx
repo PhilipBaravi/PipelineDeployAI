@@ -34,18 +34,16 @@ export default function MapComponent() {
   const { isLoaded } = useJsApiLoader({
     id: "google-map-script",
     googleMapsApiKey: GOOGLE_API_KEY,
+    libraries: ["geometry"],
   });
 
-  // Memoize pipeline arrays to prevent unnecessary re-renders
   const deployedPipelines = useMemo(
     () => [
-      // Pipeline #1 (3 points)
       [
         { lat: 41.3851, lng: 2.1734 },
         { lat: 41.3853, lng: 2.1744 },
         { lat: 41.3855, lng: 2.1754 },
       ],
-      // Pipeline #2 (2 points)
       [
         { lat: 41.3861, lng: 2.1724 },
         { lat: 41.3863, lng: 2.1734 },
@@ -54,15 +52,12 @@ export default function MapComponent() {
     []
   );
 
-  // Empty Pipelines
   const emptyPipelines = useMemo(
     () => [
-      // Pipeline #1 (2 points)
       [
         { lat: 41.3857, lng: 2.1764 },
         { lat: 41.3859, lng: 2.1774 },
       ],
-      // Pipeline #2 (2 points)
       [
         { lat: 41.3865, lng: 2.1744 },
         { lat: 41.3867, lng: 2.1754 },
@@ -78,7 +73,6 @@ export default function MapComponent() {
     pipelineIndex: number;
   } | null>(null);
 
-  // Use a stable center so it doesn't reset on each render
   const center = useMemo(() => ({ lat: 41.3851, lng: 2.1734 }), []);
 
   const pipelineStyles = {
@@ -87,34 +81,21 @@ export default function MapComponent() {
     connection: { strokeColor: "#0000FF", strokeOpacity: 0.8, strokeWeight: 3 },
   };
 
-  const haversineDistance = useCallback(
-    (coord1: Coordinate, coord2: Coordinate): number => {
-      const R = 6371000;
-      const toRad = (angle: number) => (angle * Math.PI) / 180;
-      const dLat = toRad(coord2.lat - coord1.lat);
-      const dLng = toRad(coord2.lng - coord1.lng);
-
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(toRad(coord1.lat)) *
-          Math.cos(toRad(coord2.lat)) *
-          Math.sin(dLng / 2) *
-          Math.sin(dLng / 2);
-
-      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    },
-    []
-  );
-
-  // Memoize pipeline length calculation
   const calculatePipelineLength = useCallback(
     (pipeline: Coordinate[]): number => {
       return pipeline.reduce((total, point, index) => {
         if (index === 0) return total;
-        return total + haversineDistance(pipeline[index - 1], point);
+        const prevPoint = pipeline[index - 1];
+        return (
+          total +
+          google.maps.geometry.spherical.computeDistanceBetween(
+            prevPoint,
+            point
+          )
+        );
       }, 0);
     },
-    [haversineDistance]
+    []
   );
 
   const {
@@ -190,7 +171,12 @@ export default function MapComponent() {
     });
 
     const cDistance = connections.reduce(
-      (sum, conn) => sum + haversineDistance(conn.start, conn.end),
+      (sum, conn) =>
+        sum +
+        google.maps.geometry.spherical.computeDistanceBetween(
+          conn.start,
+          conn.end
+        ),
       0
     );
 
@@ -200,13 +186,7 @@ export default function MapComponent() {
       connectionDistance: cDistance,
       connectedCoordinates: coords,
     };
-  }, [
-    connections,
-    deployedPipelines,
-    emptyPipelines,
-    calculatePipelineLength,
-    haversineDistance,
-  ]);
+  }, [connections, deployedPipelines, emptyPipelines, calculatePipelineLength]);
 
   const handlePointClick =
     (coord: Coordinate, type: "deployed" | "empty", pipelineIndex: number) =>
