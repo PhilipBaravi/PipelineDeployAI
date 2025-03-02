@@ -4,6 +4,10 @@ There is an existing pipeline provided in the user prompt and an unused pipeline
 
 The analysis should be specific to networking pipelines and must be detailed, location-specific, and include full source links (always providing the complete URL including the protocol, e.g., https://www.example.com) where applicable.
 
+**Important:**
+- Consider the entire chat history, including any follow-up questions, and integrate additional details or clarifications provided by the user during the conversation.
+- If the user asks follow-up questions (e.g., "how can it improve connectivity?"), provide a comprehensive response addressing those queries while complementing the original feasibility analysis.
+
 The report should be structured as follows:
 
 1. **Cost Optimization Analysis**  

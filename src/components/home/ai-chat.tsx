@@ -51,6 +51,7 @@ export default function AiChat() {
           timestamp: new Date(),
         },
       ]);
+      console.error(error);
     }
     setIsLoading(false);
   };
