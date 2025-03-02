@@ -1,7 +1,7 @@
 "use client";
 
 import { useJsApiLoader } from "@react-google-maps/api";
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
   getAddressFromCoordinates,
   getAndCopyAddress,
@@ -16,20 +16,6 @@ interface Coordinate {
   lng: number;
 }
 
-interface PipelineNode {
-  latitude: number;
-  longitude: number;
-}
-
-interface Pipeline {
-  nodes: PipelineNode[];
-}
-
-interface PipelineResponse {
-  success: boolean;
-  data: Pipeline[];
-}
-
 interface Connection {
   start: Coordinate;
   end: Coordinate;
@@ -37,9 +23,16 @@ interface Connection {
   endPipeline: { type: "deployed" | "empty"; index: number };
 }
 
-export default function MapComponent() {
-  const [deployedPipelines, setDeployedPipelines] = useState<Coordinate[][]>(
-    []
+interface MapComponentProps {
+  deployedPipelines: Coordinate[][];
+}
+
+export default function MapComponent({
+  deployedPipelines: initialDeployedPipelines,
+}: MapComponentProps) {
+  // Use the data passed from the server component
+  const [deployedPipelines] = useState<Coordinate[][]>(
+    initialDeployedPipelines
   );
   const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
   const { toast } = useToast();
@@ -50,54 +43,7 @@ export default function MapComponent() {
     libraries: ["geometry"],
   });
 
-  useEffect(() => {
-    const fetchDeployedPipelines = async (): Promise<void> => {
-      try {
-        const response = await fetch(
-          "https://f761-82-211-142-122.ngrok-free.app/api/v1/pipeline",
-          {
-            headers: { "ngrok-skip-browser-warning": "true" },
-          }
-        );
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const contentType = response.headers.get("content-type");
-        if (!contentType?.includes("application/json")) {
-          const text = await response.text();
-          throw new Error(
-            `Invalid content type: ${contentType} - Response: ${text}`
-          );
-        }
-        const data = (await response.json()) as PipelineResponse;
-        if (data.success) {
-          const pipelines: Coordinate[][] = data.data.map(
-            (pipeline: Pipeline) =>
-              pipeline.nodes.map(
-                (node: PipelineNode): Coordinate => ({
-                  lat: node.latitude,
-                  lng: node.longitude,
-                })
-              )
-          );
-          setDeployedPipelines(pipelines);
-        }
-      } catch (error) {
-        console.error("Error fetching pipelines:", error);
-        toast({
-          title: "Error",
-          description:
-            error instanceof Error
-              ? error.message
-              : "Failed to load pipeline data",
-          variant: "destructive",
-          duration: 3000,
-        });
-      }
-    };
-    fetchDeployedPipelines();
-  }, [toast]);
-
+  // Hardcoded empty pipelines remain in the client component
   const emptyPipelines = useMemo(
     () => [
       [
