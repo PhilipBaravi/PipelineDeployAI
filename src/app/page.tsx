@@ -142,6 +142,44 @@ export default async function Home() {
     console.error("Error fetching empty pipelines:", error);
   }
 
+  // -----------------------------------------------------------
+  // ADD YOUR DEMO ARRAYS HERE (as plain constants in a Server Component)
+  // -----------------------------------------------------------
+  const demoDeployedPipelines: Coordinate[][] = [
+    // Pipeline #1 (3 points)
+    [
+      { lat: 41.3851, lng: 2.1734 },
+      { lat: 41.3853, lng: 2.1744 },
+      { lat: 41.3855, lng: 2.1754 },
+    ],
+    // Pipeline #2 (2 points)
+    [
+      { lat: 41.3861, lng: 2.1724 },
+      { lat: 41.3863, lng: 2.1734 },
+    ],
+  ];
+
+  const demoEmptyPipelines: Coordinate[][] = [
+    // Pipeline #1 (2 points)
+    [
+      { lat: 41.3857, lng: 2.1764 },
+      { lat: 41.3859, lng: 2.1774 },
+    ],
+    // Pipeline #2 (2 points)
+    [
+      { lat: 41.3865, lng: 2.1744 },
+      { lat: 41.3867, lng: 2.1754 },
+    ],
+  ];
+
+  // If no real pipelines were fetched, fall back to demo data:
+  if (!deployedPipelines?.length) {
+    deployedPipelines = demoDeployedPipelines;
+  }
+  if (!emptyPipelines?.length) {
+    emptyPipelines = demoEmptyPipelines;
+  }
+
   return (
     <CostDataProvider>
       <div className="flex w-full h-[calc(100vh-3.5rem)] overflow-hidden">
@@ -154,7 +192,6 @@ export default async function Home() {
         <div className="w-[60%] h-full p-2.5 flex flex-col overflow-hidden">
           {/* Top container (50% height) */}
           <div className="h-[50%] bg-muted/20 rounded-lg mb-2.5 overflow-hidden">
-            {/* Pass both deployed and empty pipelines to your client component */}
             <MapComponent
               deployedPipelines={deployedPipelines}
               emptyPipelines={emptyPipelines}
