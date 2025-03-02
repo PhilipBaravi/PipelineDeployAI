@@ -93,7 +93,7 @@ export function AppSidebar() {
 
       <SidebarFooter>
         <div className="p-4 text-xs text-muted-foreground">
-          © 2025 PipelineDeployAI
+          © 2025 NetworkDeployAI
         </div>
       </SidebarFooter>
 

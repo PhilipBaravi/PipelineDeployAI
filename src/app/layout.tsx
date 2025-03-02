@@ -8,7 +8,7 @@ import { AppSidebar } from "@/components/sidebar";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "PipelineDeployAI",
+  title: "NetworkDeployAI",
   description:
     "AI-Driven Deployment Advisor for Next-Generation Telecom Networks",
 };
@@ -26,7 +26,7 @@ export default function RootLayout({
           <SidebarInset>
             <header className="sticky top-0 flex h-14 items-center gap-4 border-b bg-background px-4">
               <SidebarTrigger />
-              <div className="font-semibold">PipelineDeployAI</div>
+              <div className="font-semibold">NetworkDeployAI</div>
             </header>
             <main className="flex-1">{children}</main>
           </SidebarInset>
