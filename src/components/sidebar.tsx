@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { Database, Radical, Home, LayoutDashboard, Users } from "lucide-react";
+import { Database, Home, LayoutDashboard } from "lucide-react"; // Used Radical icon for calculations page and Users icon for teams page
 
 import {
   Sidebar,
@@ -35,20 +35,20 @@ const mainNavItems = [
     icon: Database,
     url: "/datasets",
   },
-  {
-    title: "Calculations",
-    icon: Radical,
-    url: "/calculations",
-  },
+  //   {
+  //     title: "Calculations",
+  //     icon: Radical,
+  //     url: "/calculations",
+  //   },
 ];
 
-const secondaryNavItems = [
-  {
-    title: "Team",
-    icon: Users,
-    url: "/team",
-  },
-];
+// const secondaryNavItems = [
+//   {
+//     title: "Team",
+//     icon: Users,
+//     url: "/team",
+//   },
+// ];
 
 export function AppSidebar() {
   return (
@@ -72,7 +72,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup>
+        {/* <SidebarGroup>
           <SidebarGroupLabel>Secondary</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -88,7 +88,7 @@ export function AppSidebar() {
               ))}
             </SidebarMenu>
           </SidebarGroupContent>
-        </SidebarGroup>
+        </SidebarGroup> */}
       </SidebarContent>
 
       <SidebarFooter>
