@@ -20,6 +20,20 @@ interface Coordinate {
   lng: number;
 }
 
+interface PipelineNode {
+  latitude: number;
+  longitude: number;
+}
+
+interface Pipeline {
+  nodes: PipelineNode[];
+}
+
+interface PipelineResponse {
+  success: boolean;
+  data: Pipeline[];
+}
+
 interface Connection {
   start: Coordinate;
   end: Coordinate;
@@ -41,7 +55,7 @@ export default function MapComponent() {
   });
 
   useEffect(() => {
-    const fetchDeployedPipelines = async () => {
+    const fetchDeployedPipelines = async (): Promise<void> => {
       try {
         const response = await fetch(
           "https://f761-82-211-142-122.ngrok-free.app/api/v1/pipeline"
@@ -61,14 +75,19 @@ export default function MapComponent() {
           );
         }
 
-        const data = await response.json();
+        // Explicitly cast the response to our PipelineResponse type
+        const data = (await response.json()) as PipelineResponse;
 
         if (data.success) {
-          const pipelines = data.data.map((pipeline: any) =>
-            pipeline.nodes.map((node: any) => ({
-              lat: node.latitude,
-              lng: node.longitude,
-            }))
+          // Map the response data to an array of arrays of Coordinates
+          const pipelines: Coordinate[][] = data.data.map(
+            (pipeline: Pipeline) =>
+              pipeline.nodes.map(
+                (node: PipelineNode): Coordinate => ({
+                  lat: node.latitude,
+                  lng: node.longitude,
+                })
+              )
           );
           setDeployedPipelines(pipelines);
         }
