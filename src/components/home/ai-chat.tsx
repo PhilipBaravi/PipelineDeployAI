@@ -3,31 +3,55 @@
 import { useState } from "react";
 import { ChatContainer } from "../chat/chat-container";
 import type { Message } from "../chat/types";
+import { getFeasibilityAnalysis } from "@/lib/services/aiService";
+import { useCostData } from "@/lib/contexts/CostDataContext";
 
 export default function AiChat() {
+  const { setTableData } = useCostData();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isFirstMessage, setIsFirstMessage] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
 
-  const simulateResponse = async (message: string) => {
+  const getResponse = async (message: string) => {
     setIsLoading(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      let response = await getFeasibilityAnalysis(message);
 
-    const response =
-      "This is a simulated response to your message: " +
-      message +
-      "\n\nI can help you with various tasks. Feel free to ask any questions!";
+      // Extract JSON table data from a code block marked with ```json ... ```
+      const jsonRegex = /```json\s*([\s\S]*?)```/;
+      const match = response.match(jsonRegex);
+      if (match) {
+        try {
+          const jsonPart = match[1].trim();
+          const parsed = JSON.parse(jsonPart);
+          setTableData(parsed);
+        } catch (error) {
+          console.error("Error parsing JSON table data", error);
+        }
+        // Remove the JSON code block from the response text
+        response = response.replace(jsonRegex, "").trim();
+      }
 
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        content: response,
-        role: "assistant",
-        timestamp: new Date(),
-      },
-    ]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          content: response,
+          role: "assistant",
+          timestamp: new Date(),
+        },
+      ]);
+    } catch (error) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          content: "Error: Failed to fetch response from AI.",
+          role: "assistant",
+          timestamp: new Date(),
+        },
+      ]);
+    }
     setIsLoading(false);
   };
 
@@ -43,7 +67,7 @@ export default function AiChat() {
 
     setMessages((prev) => [...prev, newMessage]);
     setIsFirstMessage(false);
-    await simulateResponse(content);
+    await getResponse(content);
   };
 
   const handleQuickAction = (message: string) => {
@@ -65,7 +89,7 @@ export default function AiChat() {
 
     setMessages((prev) => [...prev, fileMessage]);
     setIsFirstMessage(false);
-    simulateResponse(`I received your file: ${file.name}`);
+    getResponse(`I received your file: ${file.name}`);
   };
 
   return (
@@ -76,8 +100,8 @@ export default function AiChat() {
       onSendMessage={handleSendMessage}
       onFileUpload={handleFileUpload}
       onQuickAction={handleQuickAction}
-      typingDelay={20} // Reduced from 50 to 20ms
-      charsPerTick={3} // New prop: characters to show per tick
+      typingDelay={20}
+      charsPerTick={3}
     />
   );
 }

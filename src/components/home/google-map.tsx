@@ -39,28 +39,33 @@ export default function MapComponent() {
   // Memoize pipeline arrays to prevent unnecessary re-renders
   const deployedPipelines = useMemo(
     () => [
+      // Pipeline #1 (3 points)
       [
-        { lat: 51.505, lng: -0.09 },
-        { lat: 51.5052, lng: -0.089 },
-        { lat: 51.5054, lng: -0.088 },
+        { lat: 41.3851, lng: 2.1734 },
+        { lat: 41.3853, lng: 2.1744 },
+        { lat: 41.3855, lng: 2.1754 },
       ],
+      // Pipeline #2 (2 points)
       [
-        { lat: 51.506, lng: -0.091 },
-        { lat: 51.5062, lng: -0.09 },
+        { lat: 41.3861, lng: 2.1724 },
+        { lat: 41.3863, lng: 2.1734 },
       ],
     ],
     []
   );
 
+  // Empty Pipelines
   const emptyPipelines = useMemo(
     () => [
+      // Pipeline #1 (2 points)
       [
-        { lat: 51.5056, lng: -0.087 },
-        { lat: 51.5058, lng: -0.086 },
+        { lat: 41.3857, lng: 2.1764 },
+        { lat: 41.3859, lng: 2.1774 },
       ],
+      // Pipeline #2 (2 points)
       [
-        { lat: 51.5064, lng: -0.089 },
-        { lat: 51.5066, lng: -0.088 },
+        { lat: 41.3865, lng: 2.1744 },
+        { lat: 41.3867, lng: 2.1754 },
       ],
     ],
     []
@@ -72,6 +77,9 @@ export default function MapComponent() {
     type: "deployed" | "empty";
     pipelineIndex: number;
   } | null>(null);
+
+  // Use a stable center so it doesn't reset on each render
+  const center = useMemo(() => ({ lat: 41.3851, lng: 2.1734 }), []);
 
   const pipelineStyles = {
     deployed: { strokeColor: "#00FF00", strokeOpacity: 1.0, strokeWeight: 4 },
@@ -328,8 +336,8 @@ export default function MapComponent() {
       <div className="h-[calc(100%-8rem)]">
         <GoogleMap
           mapContainerStyle={{ width: "100%", height: "100%" }}
-          center={{ lat: 51.5055, lng: -0.089 }}
-          zoom={16}
+          center={center}
+          zoom={8}
           onClick={handleMapClick}
         >
           {deployedPipelines.map((pipeline, pipelineIndex) => (
