@@ -1,7 +1,14 @@
+"use client";
+
 import AiChat from "@/components/home/ai-chat";
 import ChatOutput from "@/components/home/chat-output";
-import GoogleMap from "@/components/home/google-map";
 import { CostDataProvider } from "@/lib/contexts/CostDataContext";
+import dynamic from "next/dynamic";
+
+const MapComponent = dynamic(
+  () => import("@/components/google-map-c/map-component"),
+  { ssr: false }
+);
 
 export default function Home() {
   return (
@@ -16,7 +23,7 @@ export default function Home() {
         <div className="w-[60%] h-full p-2.5 flex flex-col overflow-hidden">
           {/* Top container (40% height) */}
           <div className="h-[50%] bg-muted/20 rounded-lg mb-2.5 overflow-hidden">
-            <GoogleMap />
+            <MapComponent />
           </div>
 
           {/* Bottom container (60% height) - Scrollable */}

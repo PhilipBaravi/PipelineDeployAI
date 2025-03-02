@@ -1,19 +1,15 @@
 "use client";
 
-import {
-  useJsApiLoader,
-  GoogleMap,
-  Marker,
-  Polyline,
-} from "@react-google-maps/api";
+import { useJsApiLoader } from "@react-google-maps/api";
 import { useState, useCallback, useMemo, useEffect } from "react";
 import {
   getAddressFromCoordinates,
   getAndCopyAddress,
 } from "@/lib/address-copy";
 import { useToast } from "@/lib/hooks/use-toast";
+import MapToolbar from "./map-toolbar";
+import PipelineMap from "./PipelineMap";
 import { Toaster } from "../ui/toaster";
-import { Button } from "../ui/button";
 
 interface Coordinate {
   lat: number;
@@ -60,18 +56,12 @@ export default function MapComponent() {
         const response = await fetch(
           "https://f761-82-211-142-122.ngrok-free.app/api/v1/pipeline",
           {
-            headers: {
-              "ngrok-skip-browser-warning": "true",
-            },
+            headers: { "ngrok-skip-browser-warning": "true" },
           }
         );
-
-        // First check if response is OK (status 200-299)
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-
-        // Check if response is JSON
         const contentType = response.headers.get("content-type");
         if (!contentType?.includes("application/json")) {
           const text = await response.text();
@@ -79,12 +69,8 @@ export default function MapComponent() {
             `Invalid content type: ${contentType} - Response: ${text}`
           );
         }
-
-        // Explicitly cast the response to our PipelineResponse type
         const data = (await response.json()) as PipelineResponse;
-
         if (data.success) {
-          // Map the response data to an array of arrays of Coordinates
           const pipelines: Coordinate[][] = data.data.map(
             (pipeline: Pipeline) =>
               pipeline.nodes.map(
@@ -109,9 +95,8 @@ export default function MapComponent() {
         });
       }
     };
-
     fetchDeployedPipelines();
-  }, []);
+  }, [toast]);
 
   const emptyPipelines = useMemo(
     () => [
@@ -176,7 +161,6 @@ export default function MapComponent() {
       const endKey = `${conn.endPipeline.type}-${conn.endPipeline.index}`;
       allNodes.add(startKey);
       allNodes.add(endKey);
-
       if (!adjacency.has(startKey)) adjacency.set(startKey, []);
       if (!adjacency.has(endKey)) adjacency.set(endKey, []);
       adjacency.get(startKey)?.push(endKey);
@@ -213,7 +197,6 @@ export default function MapComponent() {
           const idx = parseInt(index);
           const pipeline =
             type === "deployed" ? deployedPipelines[idx] : emptyPipelines[idx];
-
           pipeline.forEach((coord) => {
             if (
               !coords.some((c) => c.lat === coord.lat && c.lng === coord.lng)
@@ -221,7 +204,6 @@ export default function MapComponent() {
               coords.push(coord);
             }
           });
-
           if (type === "deployed") {
             cDeployed += calculatePipelineLength(pipeline);
           } else {
@@ -253,7 +235,6 @@ export default function MapComponent() {
     (coord: Coordinate, type: "deployed" | "empty", pipelineIndex: number) =>
     (e: google.maps.MapMouseEvent) => {
       e.domEvent.stopPropagation();
-
       if (!selectedPoint) {
         setSelectedPoint({ coord, type, pipelineIndex });
       } else {
@@ -275,7 +256,6 @@ export default function MapComponent() {
     async (e: google.maps.MapMouseEvent) => {
       if (!e.latLng) return;
       setSelectedPoint(null);
-
       try {
         const address = await getAndCopyAddress(e.latLng.lat(), e.latLng.lng());
         toast({
@@ -299,7 +279,6 @@ export default function MapComponent() {
   const handleGeneratePrompt = useCallback(async () => {
     try {
       let address = "[location]";
-
       if (connectedCoordinates.length > 0) {
         const total = connectedCoordinates.reduce(
           (acc, coord) => ({
@@ -308,10 +287,8 @@ export default function MapComponent() {
           }),
           { lat: 0, lng: 0 }
         );
-
         const avgLat = total.lat / connectedCoordinates.length;
         const avgLng = total.lng / connectedCoordinates.length;
-
         try {
           address = await getAddressFromCoordinates(avgLat, avgLng);
         } catch (error) {
@@ -319,13 +296,11 @@ export default function MapComponent() {
           address = "[nearest available location]";
         }
       }
-
       const promptText = `I need a structured feasibility analysis for a networking pipeline deployment project in ${address}.\n\nThere is an existing pipeline that is ${connectedDeployed.toFixed(
         2
       )} meters in length and an unused pipeline (canalization) ${connectionDistance.toFixed(
         2
       )} meters away, with a length of ${connectedEmpty.toFixed(2)} meters.`;
-
       await navigator.clipboard.writeText(promptText);
       toast({
         title: "Prompt Copied!",
@@ -361,80 +336,23 @@ export default function MapComponent() {
 
   return (
     <div className="p-4 h-full">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-semibold">Pipeline Network Map</h2>
-        <Button onClick={handleGeneratePrompt}>Generate Prompt</Button>
-      </div>
-
-      <div className="mb-4 space-y-1 text-sm">
-        <p>Deployed Pipeline Length: {connectedDeployed.toFixed(2)}m</p>
-        <p>
-          Empty Pipeline (Canalization) Length: {connectedEmpty.toFixed(2)}m
-        </p>
-        <p>Connection Distance: {connectionDistance.toFixed(2)}m</p>
-      </div>
-
+      <MapToolbar
+        connectedDeployed={connectedDeployed}
+        connectedEmpty={connectedEmpty}
+        connectionDistance={connectionDistance}
+        onGeneratePrompt={handleGeneratePrompt}
+      />
       <div className="h-[calc(100%-8rem)]">
-        <GoogleMap
-          mapContainerStyle={{ width: "100%", height: "100%" }}
+        <PipelineMap
           center={center}
-          zoom={8}
-          onClick={handleMapClick}
-        >
-          {deployedPipelines.map((pipeline, pipelineIndex) => (
-            <div key={`deployed-${pipelineIndex}`}>
-              <Polyline path={pipeline} options={pipelineStyles.deployed} />
-              {pipeline.map((coord, pointIndex) => (
-                <Marker
-                  key={`deployed-${pipelineIndex}-${pointIndex}`}
-                  position={coord}
-                  onClick={handlePointClick(coord, "deployed", pipelineIndex)}
-                  icon={{
-                    path: google.maps.SymbolPath.CIRCLE,
-                    fillColor:
-                      selectedPoint?.pipelineIndex === pipelineIndex
-                        ? "#FFFF00"
-                        : "#00FF00",
-                    fillOpacity: 1,
-                    strokeWeight: 0,
-                    scale: 5,
-                  }}
-                />
-              ))}
-            </div>
-          ))}
-
-          {emptyPipelines.map((pipeline, pipelineIndex) => (
-            <div key={`empty-${pipelineIndex}`}>
-              <Polyline path={pipeline} options={pipelineStyles.empty} />
-              {pipeline.map((coord, pointIndex) => (
-                <Marker
-                  key={`empty-${pipelineIndex}-${pointIndex}`}
-                  position={coord}
-                  onClick={handlePointClick(coord, "empty", pipelineIndex)}
-                  icon={{
-                    path: google.maps.SymbolPath.CIRCLE,
-                    fillColor:
-                      selectedPoint?.pipelineIndex === pipelineIndex
-                        ? "#FFFF00"
-                        : "#FF0000",
-                    fillOpacity: 1,
-                    strokeWeight: 0,
-                    scale: 5,
-                  }}
-                />
-              ))}
-            </div>
-          ))}
-
-          {connections.map((connection, index) => (
-            <Polyline
-              key={`connection-${index}`}
-              path={[connection.start, connection.end]}
-              options={pipelineStyles.connection}
-            />
-          ))}
-        </GoogleMap>
+          deployedPipelines={deployedPipelines}
+          emptyPipelines={emptyPipelines}
+          connections={connections}
+          selectedPoint={selectedPoint}
+          onPointClick={handlePointClick}
+          onMapClick={handleMapClick}
+          pipelineStyles={pipelineStyles}
+        />
       </div>
       <Toaster />
     </div>
