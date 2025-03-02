@@ -13,7 +13,11 @@ const RegulatoryLinks = () => {
         regulatoryLinks.map((el) => (
           <div key={el.id} className="flex gap-x-2 text-sm">
             <p className="text-sm">{el.title}:</p>
-            <a href={el.link} className="text-sm underline text-blue-700">
+            <a
+              href={el.link}
+              className="text-sm underline text-blue-700"
+              target="_blank"
+            >
               {el.link}
             </a>
           </div>
